@@ -1,26 +1,24 @@
-# converter_logic.py - Version 2.0.0
+# converter_logic.py - Version 2.1.0
 import subprocess
 import os
 
 class eBookConverterLogic:
-    """Handles the conversion of various text formats to EPUB using Pandoc."""
-    
     def __init__(self):
-        self.version = "2.0.0"
+        self.version = "2.1.0"
 
-    def convert_to_epub(self, input_path, title, author, cover_path=None):
-        """
-        Converts input file to EPUB with metadata.
-        Supported inputs: .rtf, .txt, .docx, .pdf (via Pandoc)
-        """
+    def convert_to_epub(self, input_path, output_folder, title, author, cover_path=None):
+        """Converts file and saves it specifically to the output_folder."""
         if not os.path.exists(input_path):
             return False, "Input file not found."
+        
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
 
-        # Define output path (same name, .epub extension)
-        output_path = os.path.splitext(input_path)[0] + ".epub"
+        # Create output filename based on the input filename, but placed in output_folder
+        base_name = os.path.splitext(os.path.basename(input_path))[0]
+        output_path = os.path.join(output_folder, f"{base_name}.epub")
         
         try:
-            # Base command construction
             command = [
                 'pandoc', 
                 input_path, 
@@ -29,16 +27,13 @@ class eBookConverterLogic:
                 '-o', output_path
             ]
             
-            # Add cover image flag if a path was provided
             if cover_path and os.path.exists(cover_path):
                 command.extend(['--epub-cover-image', cover_path])
             
-            # Run the process
-            result = subprocess.run(command, check=True, capture_output=True, text=True)
+            subprocess.run(command, check=True, capture_output=True, text=True)
             return True, output_path
 
         except subprocess.CalledProcessError as e:
-            # Return the specific error from Pandoc
             return False, f"Pandoc Error: {e.stderr}"
         except FileNotFoundError:
-            return False, "System Error: Pandoc is not installed or not in PATH."
+            return False, "System Error: Pandoc not found."
