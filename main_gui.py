@@ -1,4 +1,4 @@
-# main_gui.py - Version 2.7.3
+# main_gui.py - Version 2.7.4
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, scrolledtext
 import os
@@ -34,7 +34,7 @@ class ReviewDialog(simpledialog.Dialog):
 class ConverterApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Gemini eBook Studio v2.7.3")
+        self.root.title("ePub Creator v2.7.4") # Updated Branding
         self.root.geometry("600x550")
         self.logic = eBookConverterLogic()
         self.stop_event = threading.Event()
