@@ -1,119 +1,68 @@
-# main_gui.py - Version 2.1.0
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import os
+import requests
 from converter_logic import eBookConverterLogic
 
 class ConverterApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("eBook Routing Converter v2.1.0")
-        self.root.geometry("550x550")
+        self.root.title("eBook Creator v2.3.1")
+        self.root.geometry("500x500")
         self.logic = eBookConverterLogic()
+        self.cover_path = None
+        self.current_file = None
         
-        # Default Folders
+        # Setup Default Paths
         self.source_dir = os.path.join(os.getcwd(), "To_Be_Processed")
         self.output_dir = os.path.join(os.getcwd(), "Processed")
-        self.cover_path = None
+        for d in [self.source_dir, self.output_dir]:
+            if not os.path.exists(d): os.makedirs(d)
 
-        # Ensure folders exist on startup
-        for folder in [self.source_dir, self.output_dir]:
-            if not os.path.exists(folder):
-                os.makedirs(folder)
-
-        self.setup_ui()
-
-    def setup_ui(self):
-        # --- Folder Selection ---
-        tk.Label(self.root, text="Step 1: Folder Configuration", font=("Arial", 10, "bold")).pack(pady=10)
+        tk.Label(root, text="Step 1: Select File", font=("Arial", 10, "bold")).pack(pady=10)
+        tk.Button(root, text="📁 Choose File", command=self.select_and_parse).pack()
         
-        # Source Folder
-        f1 = tk.Frame(self.root)
-        f1.pack(fill="x", padx=20)
-        self.lbl_source = tk.Label(f1, text=f"Source: ...{self.source_dir[-30:]}", fg="blue")
-        self.lbl_source.pack(side="left")
-        tk.Button(f1, text="Browse", command=self.browse_source).pack(side="right")
+        tk.Label(root, text="Title:").pack(pady=(20,0))
+        self.ent_title = tk.Entry(root, width=40)
+        self.ent_title.pack()
+        
+        tk.Label(root, text="Author:").pack(pady=(10,0))
+        self.ent_author = tk.Entry(root, width=40)
+        self.ent_author.pack()
 
-        # Output Folder
-        f2 = tk.Frame(self.root)
-        f2.pack(fill="x", padx=20, pady=5)
-        self.lbl_output = tk.Label(f2, text=f"Output: ...{self.output_dir[-30:]}", fg="blue")
-        self.lbl_output.pack(side="left")
-        tk.Button(f2, text="Browse", command=self.browse_output).pack(side="right")
+        self.lbl_cover = tk.Label(root, text="No cover", fg="gray")
+        self.lbl_cover.pack(pady=10)
+        
+        tk.Button(root, text="Convert Now", command=self.run_conversion, bg="green", fg="white", height=2).pack(pady=20)
 
-        tk.Frame(self.root, height=2, bd=1, relief="sunken").pack(fill="x", padx=20, pady=15)
+    def select_and_parse(self):
+        f = filedialog.askopenfilename(initialdir=self.source_dir)
+        if not f: return
+        self.current_file = f
+        t, a = self.logic.parse_filename(f)
+        self.ent_title.delete(0, tk.END); self.ent_title.insert(0, t)
+        self.ent_author.delete(0, tk.END); self.ent_author.insert(0, a)
+        
+        # Fetch Online
+        data = self.logic.fetch_metadata_online(t, a)
+        if data:
+            self.ent_title.delete(0, tk.END); self.ent_title.insert(0, data['title'])
+            self.ent_author.delete(0, tk.END); self.ent_author.insert(0, data['author'])
+            if data['cover_url']: self.download_cover(data['cover_url'])
 
-        # --- Metadata ---
-        tk.Label(self.root, text="Step 2: Metadata", font=("Arial", 10, "bold")).pack()
-        tk.Label(self.root, text="Book Title:").pack()
-        self.ent_title = tk.Entry(self.root, width=45)
-        self.ent_title.pack(pady=5)
-
-        tk.Label(self.root, text="Author Name:").pack()
-        self.ent_author = tk.Entry(self.root, width=45)
-        self.ent_author.pack(pady=5)
-
-        # --- Cover ---
-        self.lbl_cover = tk.Label(self.root, text="No cover selected", fg="gray")
-        self.lbl_cover.pack(pady=(10,0))
-        tk.Button(self.root, text="Select Cover Image", command=self.browse_cover).pack()
-
-        tk.Frame(self.root, height=2, bd=1, relief="sunken").pack(fill="x", padx=20, pady=15)
-
-        # --- Convert ---
-        self.btn_convert = tk.Button(
-            self.root, text="Select File From Source & Convert", 
-            command=self.run_conversion, 
-            bg="#2ecc71", fg="white", font=("Arial", 10, "bold"), height=2
-        )
-        self.btn_convert.pack(pady=10)
-
-        self.status_var = tk.StringVar(value="Ready")
-        tk.Label(self.root, textvariable=self.status_var, bd=1, relief="sunken", anchor="w").pack(side="bottom", fill="x")
-
-    def browse_source(self):
-        path = filedialog.askdirectory()
-        if path:
-            self.source_dir = path
-            self.lbl_source.config(text=f"Source: ...{path[-30:]}")
-
-    def browse_output(self):
-        path = filedialog.askdirectory()
-        if path:
-            self.output_dir = path
-            self.lbl_output.config(text=f"Output: ...{path[-30:]}")
-
-    def browse_cover(self):
-        path = filedialog.askopenfilename(filetypes=[("Images", "*.jpg *.jpeg *.png")])
-        if path:
-            self.cover_path = path
-            self.lbl_cover.config(text=f"Cover: {os.path.basename(path)}", fg="green")
+    def download_cover(self, url):
+        try:
+            r = requests.get(url)
+            self.cover_path = "temp_cover.jpg"
+            with open(self.cover_path, 'wb') as f: f.write(r.content)
+            self.lbl_cover.config(text="Cover: Found!", fg="green")
+        except: pass
 
     def run_conversion(self):
-        title = self.ent_title.get().strip() or "Untitled"
-        author = self.ent_author.get().strip() or "Unknown Author"
-
-        # Force file selection to start in the source folder
-        file_path = filedialog.askopenfilename(
-            initialdir=self.source_dir,
-            title="Select file from source folder",
-            filetypes=[("All Supported", "*.rtf *.txt *.pdf *.docx")]
-        )
-
-        if file_path:
-            self.status_var.set("Processing...")
-            self.root.update_idletasks()
-            
-            success, result = self.logic.convert_to_epub(
-                file_path, self.output_dir, title, author, self.cover_path
-            )
-            
-            if success:
-                self.status_var.set("Success!")
-                messagebox.showinfo("Done", f"File saved to:\n{result}")
-            else:
-                self.status_var.set("Error")
-                messagebox.showerror("Error", result)
+        if not self.current_file: return
+        s, r = self.logic.convert_to_epub(self.current_file, self.output_dir, self.ent_title.get(), self.ent_author.get(), self.cover_path)
+        if s: messagebox.showinfo("Done", "Success!")
+        else: messagebox.showerror("Error", r)
 
 if __name__ == "__main__":
     root = tk.Tk()
