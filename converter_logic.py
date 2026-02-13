@@ -1,4 +1,4 @@
-# converter_logic.py - Version 2.6.2
+# converter_logic.py - Version 2.7.0
 import subprocess
 import os
 import requests
@@ -6,11 +6,11 @@ import re
 
 class eBookConverterLogic:
     def __init__(self):
-        self.version = "2.6.2"
+        self.version = "2.7.0"
         self.allowed_formats = ('.txt', '.rtf', '.docx', '.html')
 
     def sanitize_filename(self, filename):
-        """Removes illegal characters and noise for the final filename."""
+        """Removes illegal characters and internal codes for the final filename."""
         clean = re.sub(r'LE\d+', '', filename, flags=re.I)
         clean = clean.replace(";", ",")
         clean = re.sub(r'[<>:"/\\|?*]', '', clean)
@@ -27,14 +27,12 @@ class eBookConverterLogic:
         
         if " - " in filename:
             parts = filename.split(" - ")
-            # First part is Author, remainder is Title
             author = parts[0].strip()
             title = " - ".join(parts[1:]).strip()
             return title, author
         return filename, ""
 
     def fetch_metadata_online(self, title, author=""):
-        """Fetches the best guess from Google without internal filtering."""
         search_query = f"{title} {author}".strip()
         url = f"https://www.googleapis.com/books/v1/volumes?q={search_query}&maxResults=1"
         try:
@@ -60,7 +58,6 @@ class eBookConverterLogic:
 
     def convert_to_epub(self, input_path, output_folder, title, author, cover_path=None):
         if not os.path.exists(output_folder): os.makedirs(output_folder)
-        # Use sanitized Author - Title.epub
         file_name = f"{self.sanitize_filename(author)} - {self.sanitize_filename(title)}.epub"
         output_path = os.path.join(output_folder, file_name)
         try:
